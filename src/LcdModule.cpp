@@ -1,9 +1,11 @@
 #include "LcdModule.h"
 
-LiquidCrystal LcdInstance(12, 11, 5, 4, 3, 2);
+// I2C LCD: address 0x27, 16 columns, 2 rows
+LiquidCrystal_I2C LcdInstance(0x27, 16, 2);
 
 void InitLcd() {
-    LcdInstance.begin(16, 2);
+    LcdInstance.init();        // if this gives error, change to begin(16, 2);
+    LcdInstance.backlight();
     LcdInstance.clear();
 }
 
