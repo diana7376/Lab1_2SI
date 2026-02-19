@@ -4,7 +4,7 @@
 LiquidCrystal_I2C LcdInstance(0x27, 16, 2);
 
 void InitLcd() {
-    LcdInstance.init();        // if this gives error, change to begin(16, 2);
+    LcdInstance.init();        // if this fails, change to LcdInstance.begin(16, 2);
     LcdInstance.backlight();
     LcdInstance.clear();
 }

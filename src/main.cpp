@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <stdio.h>
 
 #include "KeypadModule.h"
 #include "LcdModule.h"
@@ -8,63 +7,71 @@
 const int PasswordLength = 4;
 const char CorrectPassword[PasswordLength + 1] = "1234"; // null-terminated
 
-// mici hack-uri ca să putem folosi printf pe Serial
-int serial_putchar(char c, FILE* f) {
-    if (c == '\n') Serial.print('\r');
-    Serial.print(c);
-    return 0;
-}
-
-FILE serial_stdout;
-
 void setup() {
-    Serial.begin(9600);
-
-    // redirect printf către Serial
-    fdev_setup_stream(&serial_stdout, serial_putchar, NULL, _FDEV_SETUP_WRITE);
-    stdout = &serial_stdout;
-
     InitLcd();
     InitLeds();
 
-    PrintLcd("Ready. Use Serial");
-    delay(1000);
-    PrintLcd("for code.");
-    printf("Enter 4-digit code: ");
+    PrintLcd("Enter code:");
 }
 
 void loop() {
-    char inputPassword[PasswordLength + 1] = {0};
+    static char inputPassword[PasswordLength + 1] = {0};
+    static int index = 0;
 
-    // citire simplă de la Serial (fără scanf complicat)
-    int idx = 0;
-    while (idx < PasswordLength) {
-        if (Serial.available() > 0) {
-            char c = Serial.read();
-            if (c == '\n' || c == '\r') continue;
-            inputPassword[idx++] = c;
+    char key = GetKeyPress();   // read from keypad
+
+    if (!key) {
+        // nothing pressed
+        return;
+    }
+
+    // '*' = clear/reset
+    if (key == '*') {
+        index = 0;
+        inputPassword[0] = '\0';
+        PrintLcd("Enter code:");
+        return;
+    }
+
+    // we ignore '#' (could be used as "OK" later)
+    if (key == '#') {
+        return;
+    }
+
+    // store digit if we still have space
+    if (index < PasswordLength) {
+        inputPassword[index++] = key;
+        inputPassword[index] = '\0';
+
+        // Show **** on LCD (hide actual digits)
+        LcdInstance.clear();
+        LcdInstance.setCursor(0, 0);
+        LcdInstance.print("Code:");
+        LcdInstance.setCursor(0, 1);
+        for (int i = 0; i < index; i++) {
+            LcdInstance.print('*');
         }
     }
-    inputPassword[PasswordLength] = '\0';
 
-    // Validare
-    if (strncmp(inputPassword, CorrectPassword, PasswordLength) == 0) {
-        printf("\nAccess granted!\n");
-        PrintLcd("Access Granted!");
-        SetGreenLed(true);
-        SetRedLed(false);
-    } else {
-        printf("\nInvalid code!\n");
-        PrintLcd("Access Denied!");
-        SetRedLed(true);
+    // when we have 4 keys -> check password
+    if (index == PasswordLength) {
+        if (strncmp(inputPassword, CorrectPassword, PasswordLength) == 0) {
+            PrintLcd("Access Granted!");
+            SetGreenLed(true);
+            SetRedLed(false);
+        } else {
+            PrintLcd("Access Denied!");
+            SetRedLed(true);
+            SetGreenLed(false);
+        }
+
+        delay(2000);
         SetGreenLed(false);
-    }
+        SetRedLed(false);
 
-    delay(2000);
-    SetGreenLed(false);
-    SetRedLed(false);
-    PrintLcd("Ready. Use Serial");
-    delay(500);
-    PrintLcd("for code.");
-    printf("Enter 4-digit code: ");
+        // prepare for next attempt
+        index = 0;
+        inputPassword[0] = '\0';
+        PrintLcd("Enter code:");
+    }
 }
